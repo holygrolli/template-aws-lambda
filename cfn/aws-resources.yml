@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters: 
+  ParamDomainName: 
+    Type: String
+    Description: Registered API Domain Name
+  ParamBaseName: 
+    Type: String
+    Description: Used as the API Base Path
+
+Resources:
+  MyApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      DefinitionBody:
+        swagger: 2.0
+        info:
+          title: !Ref AWS::StackName
+        paths:
+          "/{proxy+}":
+            x-amazon-apigateway-any-method:
+              produces:
+                - application/json
+              parameters:
+                - name: proxy
+                  in: path
+                  required: true
+                  type: string
+              responses: {}
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: '200'
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MyLambdaFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                cacheNamespace: roq9wj
+                cacheKeyParameters:
+                  - method.request.path.proxy
+                type: aws_proxy
+      StageName: prod
+      Variables:
+        LambdaFunctionName: !Ref MyLambdaFunction
+
+  PathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      BasePath: !Ref ParamBaseName
+      DomainName: !Ref ParamDomainName
+      RestApiId: !Ref MyApi
+      Stage: !Ref MyApi.Stage
+
+  MyLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: function.lambda_handler
+      Runtime: python3.8
+      CodeUri: ../target/function.zip
+      MemorySize: 128
+      Policies: AWSLambdaBasicExecutionRole
+      Timeout: 5
+      FunctionUrlConfig:
+        AuthType: NONE
+
+  MyLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MyLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*
+
+Outputs:
+  LambdaEndpoint:
+    Description: API Gateway URL of the Lambda Function
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/prod/"

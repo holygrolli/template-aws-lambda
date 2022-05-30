@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters: 
+  ParamDomainName: 
+    Type: String
+    Description: Registered API Domain Name
+  ParamCertArn: 
+    Type: String
+    Description: us-east-1 cert ARN arn:aws:acm:us-east-1:ACCOUNT:certificate/cert
+  
+Resources:
+  DdnsDomain:
+    Type: AWS::ApiGateway::DomainName
+    Properties: 
+      CertificateArn: !Ref ParamCertArn
+      DomainName: 
+        Ref: ParamDomainName
